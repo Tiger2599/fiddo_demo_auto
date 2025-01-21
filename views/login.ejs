@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Login</title>
+    <script src="/js/webauthn.js"></script>
+</head>
+<body>
+    <h1>Login</h1>
+    <button id="loginBtn">Login</button>
+
+    <script>
+        document.getElementById('loginBtn').addEventListener('click', async () => {
+            const authOptions = await fetch('/auth/generate-auth-options').then(res => res.json());
+            const assertionResponse = await navigator.credentials.get({ publicKey: authOptions });
+            const response = await fetch('/auth/verify-authentication', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(assertionResponse),
+            });
+            const result = await response.json();
+            alert(result.msg);
+        });
+    </script>
+</body>
+</html>

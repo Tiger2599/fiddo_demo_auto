@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
+    <script src="/js/webauthn.js"></script>
+</head>
+<body>
+    <h1>Register</h1>
+    <button id="registerBtn">Register</button>
+
+    <script>
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            const registrationOptions = await fetch('/auth/generate-registration-options').then(res => res.json());
+            const attestationResponse = await navigator.credentials.create({ publicKey: registrationOptions });
+            const response = await fetch('/auth/verify-registration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(attestationResponse),
+            });
+            const result = await response.json();
+            alert(result.msg);
+        });
+    </script>
+</body>
+</html>
