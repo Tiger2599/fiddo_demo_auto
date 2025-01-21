@@ -9,17 +9,44 @@
     <button id="registerBtn">Register</button>
 
     <script>
+        function base64urlToArrayBuffer(base64url) {
+            const padding = '='.repeat((4 - base64url.length % 4) % 4);
+            const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+
         document.getElementById('registerBtn').addEventListener('click', async () => {
-            const registrationOptions = await fetch('/auth/generate-registration-options').then(res => res.json());
-            const attestationResponse = await navigator.credentials.create({ publicKey: registrationOptions });
-            const response = await fetch('/auth/verify-registration', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(attestationResponse),
-            });
-            const result = await response.json();
-            alert(result.msg);
+            try {
+                // Fetch registration options
+                const registrationOptions = await fetch('/auth/generate-registration-options').then(res => res.json());
+
+                // Convert Base64URL strings to ArrayBuffer for challenge and user.id
+                registrationOptions.challenge = base64urlToArrayBuffer(registrationOptions.challenge);
+                registrationOptions.user.id = base64urlToArrayBuffer(registrationOptions.user.id);
+
+                // Call WebAuthn API
+                const attestationResponse = await navigator.credentials.create({ publicKey: registrationOptions });
+
+                // Send response to server for verification
+                const response = await fetch('/auth/verify-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attestationResponse),
+                });
+
+                const result = await response.json();
+                alert(result.msg);
+            } catch (err) {
+                console.error('Error during registration:', err);
+                alert('Registration failed. Check console for details.');
+            }
         });
+
     </script>
 </body>
 </html>

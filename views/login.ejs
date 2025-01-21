@@ -7,19 +7,82 @@
 <body>
     <h1>Login</h1>
     <button id="loginBtn">Login</button>
+    <button id="registerBtn">Register</button>
 
     <script>
+        function base64urlToArrayBuffer(base64url) {
+            const padding = '='.repeat((4 - base64url.length % 4) % 4);
+            const base64 = (base64url + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray.buffer;
+        }
+
         document.getElementById('loginBtn').addEventListener('click', async () => {
-            const authOptions = await fetch('/auth/generate-auth-options').then(res => res.json());
-            const assertionResponse = await navigator.credentials.get({ publicKey: authOptions });
-            const response = await fetch('/auth/verify-authentication', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(assertionResponse),
-            });
-            const result = await response.json();
-            alert(result.msg);
+            try {
+                // Fetch login options from the server
+                const loginOptions = await fetch('/auth/generate-login-options').then(res => res.json());
+                console.log(loginOptions);
+                
+
+                // Convert challenge and allowCredentials.id to ArrayBuffer
+                loginOptions.challenge = base64urlToArrayBuffer(loginOptions.challenge);
+
+                if (loginOptions.allowCredentials && loginOptions.allowCredentials.length > 0) {
+                    loginOptions.allowCredentials = loginOptions.allowCredentials.map(cred => ({
+                        ...cred,
+                        id: base64urlToArrayBuffer(cred.id),
+                    }));
+                }
+
+                // Call WebAuthn API
+                const assertionResponse = await navigator.credentials.get({ publicKey: loginOptions });
+
+                // Send response to the server for verification
+                const response = await fetch('/auth/verify-login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(assertionResponse),
+                });
+
+                const result = await response.json();
+                alert(result.msg);
+            } catch (err) {
+                console.error('Error during login:', err);
+                alert('Login failed. Check console for details.');
+            }
         });
+
+        document.getElementById('registerBtn').addEventListener('click', async () => {
+            try {
+                // Fetch registration options
+                const registrationOptions = await fetch('/auth/generate-registration-options').then(res => res.json());
+
+                // Convert Base64URL strings to ArrayBuffer for challenge and user.id
+                registrationOptions.challenge = base64urlToArrayBuffer(registrationOptions.challenge);
+                registrationOptions.user.id = base64urlToArrayBuffer(registrationOptions.user.id);
+
+                // Call WebAuthn API
+                const attestationResponse = await navigator.credentials.create({ publicKey: registrationOptions });
+
+                // Send response to server for verification
+                const response = await fetch('/auth/verify-registration', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(attestationResponse),
+                });
+
+                const result = await response.json();
+                alert(result.msg);
+            } catch (err) {
+                console.error('Error during registration:', err);
+                alert('Registration failed. Check console for details.');
+            }
+        });
+
     </script>
 </body>
 </html>
