@@ -15,7 +15,7 @@ const credentials = {};
 
 // Relying Party information
 const rpName = "Test App";
-const rpID = "redesigned-funicular-vx45pq7q796fw5w6-3000.app.github.dev";
+const rpID = "redesigned-memory-4x4rqw9w474cqwqj-3000.app.github.dev";
 const origin = `https://${rpID}`;
 
 // Helper function to convert Base64URL to Buffer
@@ -48,6 +48,9 @@ router.get('/generate-registration-options', async (req, res) => {
         },
     });
 
+    console.log("register generate------------------",registrationOptions);
+
+
     // Convert challenge and user.id to Base64URL
     registrationOptions.challenge = bufferToBase64url(Buffer.from(registrationOptions.challenge));
     registrationOptions.user.id = bufferToBase64url(Buffer.from(registrationOptions.user.id));
@@ -72,13 +75,16 @@ router.post('/verify-registration', async (req, res) => {
             expectedRPID: rpID,
         });
 
+        console.log("register verify------------------",verification);
+        
+
         if (verification.verified) {
             const { credentialID, credentialPublicKey, counter } = verification.registrationInfo;
 
             // Store the credential in memory
             credentials[userID] = {
-                credentialID: bufferToBase64url(Buffer.from(credentialID)),
-                credentialPublicKey: bufferToBase64url(Buffer.from(credentialPublicKey)),
+                credentialID: (credentialID),
+                credentialPublicKey: (credentialPublicKey),
                 counter,
             };
 
@@ -103,11 +109,14 @@ router.get('/generate-login-options', async (req, res) => {
         const authOptions = await generateAuthenticationOptions({
             rpID,
             allowCredentials: Object.values(credentials).map((cred) => ({
-                id: base64urlToBuffer(cred.credentialID),
+                id: cred.credentialID,
                 type: 'public-key',
             })),
             userVerification: 'preferred',
         });
+
+        console.log("login generate-------------",authOptions);
+        
 
         // Convert challenge to Base64URL
         authOptions.challenge = bufferToBase64url(Buffer.from(authOptions.challenge));
@@ -128,25 +137,30 @@ router.post('/verify-login', async (req, res) => {
         const { body: response } = req;
         const { challenge, userID } = req.session;
 
-        console.log({ challenge, userID });
-        console.log("credentials",credentials);
-
         // Ensure the received response has Base64URL-decoded fields converted to Buffers
-        response.rawId = base64urlToBuffer(response.rawId);
-        response.response.authenticatorData = base64urlToBuffer(response.response.authenticatorData);
-        response.response.clientDataJSON = base64urlToBuffer(response.response.clientDataJSON);
-        response.response.signature = base64urlToBuffer(response.response.signature);
+        response.rawId = (response.rawId);
+        response.response.authenticatorData = (response.response.authenticatorData);
+        response.response.clientDataJSON = (response.response.clientDataJSON);
+        response.response.signature = (response.response.signature);
         if (response.response.userHandle) {
-            response.response.userHandle = base64urlToBuffer(response.response.userHandle);
+            response.response.userHandle = (response.response.userHandle);
         }
 
         // Retrieve and properly decode the stored credential
         const storedCredential = credentials[userID];
         const authenticator = {
-            credentialID: base64urlToBuffer(storedCredential.credentialID), // Decode from Base64URL to Buffer
-            credentialPublicKey: base64urlToBuffer(storedCredential.credentialPublicKey), // Decode from Base64URL to Buffer
+            credentialID: (storedCredential.credentialID), // Decode from Base64URL to Buffer
+            credentialPublicKey: (storedCredential.credentialPublicKey), // Decode from Base64URL to Buffer
             counter: storedCredential.counter,
         };
+        
+        console.log("verification",{
+            response,
+            expectedChallenge: challenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            authenticator,
+        });
 
         // Verify the authentication response
         const verification = await verifyAuthenticationResponse({
@@ -158,11 +172,6 @@ router.post('/verify-login', async (req, res) => {
         });
 
         console.log(verification);
-
-        console.log('Response.rawId:', response.rawId.toString('base64url'));
-        console.log('Stored Credential ID:', credentials[userID].credentialID);
-        console.log('Decoded Credential ID:', base64urlToBuffer(credentials[userID].credentialID));
-
 
         if (verification.verified) {
             // Update counter in the stored credential
